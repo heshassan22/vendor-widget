@@ -1,0 +1,9 @@
+node_modules/
+dist/
+public/widget/loader.js
+public/widget/widget.js
+data.db
+data.db-shm
+data.db-wal
+.env
+.DS_Store

@@ -1,0 +1,162 @@
+# Vendor Loyalty Widget — full stack
+
+A drop-in loyalty widget for any e-commerce product page plus the dashboard that
+manages it. Vendors paste a single `<script>` tag into their store, our widget
+detects products via JSON-LD/OpenGraph and tracks loyalty events back to a real
+backend you control.
+
+This repo runs on a single machine: one Node process serves the dashboard, the
+widget CDN, the per-tenant config endpoint, and event ingestion. Cloudflare
+Tunnel exposes it to the public internet so real shoppers on real stores hit
+your laptop.
+
+## What's in the box
+
+- `server/` — Fastify + SQLite backend. Stateless except for `data.db`.
+- `src/widget/` — the framework-agnostic widget runtime (`loader.js`,
+  `widget.js`).
+- `src/app/`, `src/lib/`, `src/components/` — the React dashboard SPA.
+- `public/demo/` — a static "Vendor Mart" product page used for live demos.
+
+## Quick start
+
+```bash
+cp .env.example .env             # tweak COOKIE_SECRET if you want
+npm install
+npm run dev                      # builds the widget once, then runs vite + tsx watch
+```
+
+Two ports come up:
+
+- `http://localhost:3000` — backend (API, widget CDN, config endpoint, demo page).
+- `http://localhost:5173` — Vite dev server for the dashboard, with proxies to
+  `:3000` for `/api`, `/auth`, `/configs`, `/widget`, `/demo`, `/health`.
+
+Sign in at `http://localhost:5173` with the seeded admin
+(`admin@uniwidget.local` / `admin`) and you're in.
+
+The seed script also creates a demo tenant `t_8f3a` mapped to the static demo
+page at `http://localhost:3000/demo/after.html`. Open that page and the widget
+launcher appears bottom-right.
+
+## Production-ish run (single port)
+
+```bash
+npm run start
+# builds the dashboard SPA + widget bundles, then serves everything from :3000
+```
+
+In this mode there is no Vite dev server. The dashboard, the widget CDN and
+ingestion all share one origin so cookies and CORS just work.
+
+## Exposing it to a real vendor
+
+The widget is useful only when a real vendor pastes the snippet into their real
+store. Use Cloudflare Tunnel to give them a public HTTPS URL pointing at your
+local server.
+
+```bash
+# one-time install
+npm run tunnel:install           # brew install cloudflared
+# every test session
+npm run tunnel
+# prints something like https://random-words.trycloudflare.com
+```
+
+While the tunnel is up:
+
+1. Open the printed URL in your browser, sign in to the dashboard.
+2. Onboarding → fill in the vendor's name/brand/domain → "Continue". A tenant
+   is created and a snippet is generated, e.g.
+
+   ```html
+   <script src="https://random-words.trycloudflare.com/widget/loader.js"
+           data-domain-script="t_xy-mystore.shopify.com"
+           type="module"></script>
+   ```
+
+3. Send that snippet to the vendor. They paste it inside `<head>` of their
+   theme.
+4. Open Integration in the dashboard. The page subscribes to a Server-Sent
+   Events stream — every shopper page-view, launcher-open, add-to-cart, and
+   checkout-success appears live.
+5. Customize, Releases, Security Center, Product Mapping all PATCH the same
+   tenant config. Vendor browsers pick up new configs after the next
+   `stale-while-revalidate` window (≈60s).
+
+For tip-of-the-spear realism, also point a small mock store at the tunnel URL
+(or just open `https://<tunnel>/demo/after.html`) and click around — events
+flow.
+
+## Smoke checklist
+
+```bash
+# 1. health
+curl https://<tunnel>/health
+
+# 2. config endpoint (used by the loader)
+curl https://<tunnel>/configs/t_8f3a-store.vendor.com.json
+
+# 3. signed event
+node -e "
+  const { createHmac } = require('node:crypto');
+  const tenantId = 't_8f3a';
+  const publicKey = '<from seed log or rotate-key>';
+  const secret = '<paired secret>';
+  const type = 'page_view';
+  const sku = 'UNI-001';
+  const customerId = 'demo';
+  const timestamp = Math.floor(Date.now() / 1000);
+  const message = [tenantId, type, sku, customerId, String(timestamp)].join(':');
+  const signature = createHmac('sha256', secret).update(message).digest('hex');
+  console.log(JSON.stringify({tenantId, publicKey, type, sku, customerId, timestamp, signature}));
+"
+```
+
+## Architecture notes
+
+- One Fastify process. Production-ish runs on `:3000`. Dev splits the
+  dashboard onto Vite at `:5173` and proxies API calls to `:3000`.
+- SQLite via `better-sqlite3`. Schema is created/migrated on boot in
+  `server/db.ts`. Swap to Postgres later by replacing one module.
+- Auth: argon2 is replaced with Node's built-in `scrypt` to avoid native
+  toolchain pain. Sessions are HMAC-signed cookies (no JWT library).
+- Widget HMAC: events sign `tenantId:type:sku:customerId:timestamp` with the
+  per-tenant publishable secret. The secret is shipped inside the widget
+  config — it is a tampering check / lite anti-spam, not real auth. Compromise
+  costs only that tenant.
+- Widget loader resolves both `widget.js` and the config URL relative to the
+  loader's own `src`, so the same script works on `localhost`,
+  `random-words.trycloudflare.com` and `mystore.shopify.com`.
+- SPA route changes are detected by patching `history.pushState/replaceState`
+  and listening for `popstate`.
+- Live event stream uses Server-Sent Events via `EventSource`. No WebSocket,
+  no Redis, no queue. Sufficient for two test shops.
+
+## Troubleshooting
+
+- **Dashboard says "Loading..." forever** — backend is down. Run
+  `npm run server` separately to see logs, or check that `:3000` is bound.
+- **Widget never appears on a vendor page** — open DevTools Console:
+  - `[uniwidget] config fetch failed` → tunnel URL or `data-domain-script`
+    don't match a real tenant.
+  - `[uniwidget] origin not allowed` → add the vendor's origin under Security
+    Center → Allowed origins (or `*` for testing).
+  - No log at all → JSON-LD Product schema is missing or no rule matches; add
+    a brand/sku rule under Product Mapping.
+- **`Rollup failed to resolve import "/widget/widget.js"`** — already handled
+  in `vite.config.ts` via `rollupOptions.external`. If you hit it again, that
+  list is the place to look.
+- **Events 401 with "invalid signature"** — likely a clock skew of more than
+  5 minutes between vendor browser and server. NTP both ends.
+- **Cloudflare tunnel URL changes every restart** — that's expected for
+  `cloudflared tunnel --url`. For a stable URL, register a named tunnel with
+  Cloudflare.
+
+## What is intentionally out of scope
+
+- Email sending (no password-reset flow).
+- Multi-region / horizontal scaling.
+- Real CDN. Configs and widget bundles serve from the Fastify process.
+- Plugins for Shopify / WordPress. The snippet is just `<script>`.
+- Observability. The events table doubles as the debug log.
