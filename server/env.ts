@@ -38,12 +38,34 @@ function readString(name: string, fallback: string): string {
   return raw === undefined || raw.length === 0 ? fallback : raw;
 }
 
+const DEFAULT_PUBLIC_BASE_URL = 'http://localhost:3000';
+
 export const env = {
   port: readNumber('PORT', 3000),
   cookieSecret: readString('COOKIE_SECRET', 'dev-cookie-secret-change-me'),
   dbPath: readString('DB_PATH', path.join(projectRoot, 'data.db')),
-  publicBaseUrl: readString('PUBLIC_BASE_URL', 'http://localhost:3000'),
+  publicBaseUrl: readString('PUBLIC_BASE_URL', DEFAULT_PUBLIC_BASE_URL),
   adminEmail: readString('ADMIN_EMAIL', 'admin@uniwidget.local'),
   adminPassword: readString('ADMIN_PASSWORD', 'admin'),
   projectRoot,
 } as const;
+
+export const isPublicBaseUrlDefault = env.publicBaseUrl === DEFAULT_PUBLIC_BASE_URL;
+
+type OriginRequest = {
+  protocol: string;
+  hostname: string;
+  headers: { host?: string; 'x-forwarded-host'?: string | string[] };
+};
+
+export function getPublicOrigin(request: OriginRequest): string {
+  if (isPublicBaseUrlDefault === false) {
+    return env.publicBaseUrl;
+  }
+  const forwardedHost = request.headers['x-forwarded-host'];
+  const host =
+    (Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost) ??
+    request.headers.host ??
+    request.hostname;
+  return `${request.protocol}://${host}`;
+}

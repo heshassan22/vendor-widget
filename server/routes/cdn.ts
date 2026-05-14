@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { DB } from '../db.ts';
-import { env } from '../env.ts';
+import { env, getPublicOrigin } from '../env.ts';
 
 type ConfigRow = {
   primary_color: string;
@@ -84,7 +84,7 @@ export function registerCdnRoutes(app: FastifyInstance, db: DB): void {
           productRules: safeParseJson<unknown[]>(config.product_rules_json, []),
           environment: config.environment,
           channel: config.channel,
-          eventsUrl: `${env.publicBaseUrl}/api/v1/events`,
+          eventsUrl: `${getPublicOrigin(request)}/api/v1/events`,
           publicKey: apiKey?.public_key ?? null,
           publishableSecret: apiKey?.secret ?? null,
         });

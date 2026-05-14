@@ -41,7 +41,11 @@ function decodeSession(token: string): SessionPayload | null {
   }
 }
 
-export function setSessionCookie(reply: FastifyReply, payload: Omit<SessionPayload, 'expiresAt'>): void {
+export function setSessionCookie(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  payload: Omit<SessionPayload, 'expiresAt'>,
+): void {
   const session: SessionPayload = {
     ...payload,
     expiresAt: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
@@ -51,7 +55,7 @@ export function setSessionCookie(reply: FastifyReply, payload: Omit<SessionPaylo
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
-    secure: false,
+    secure: request.protocol === 'https',
     maxAge: SESSION_TTL_SECONDS,
   });
 }

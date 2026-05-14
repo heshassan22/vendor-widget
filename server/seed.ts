@@ -33,11 +33,7 @@ export function seedIfEmpty(db: DB): void {
       'Earn loyalty points on this purchase',
       'See my points',
       'Rewards',
-      JSON.stringify([
-        env.publicBaseUrl,
-        'http://localhost:5173',
-        'http://localhost:3000',
-      ]),
+      JSON.stringify(['*']),
       JSON.stringify([
         { match: 'brand', value: 'Vendor Mart', points: 50 },
         { match: 'brand', value: 'Dove', points: 30 },

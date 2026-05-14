@@ -37,7 +37,7 @@ export function registerAuthRoutes(app: FastifyInstance, db: DB): void {
       return reply.code(401).send({ error: 'invalid credentials' });
     }
 
-    setSessionCookie(reply, {
+    setSessionCookie(request, reply, {
       userId: user.id,
       email: user.email,
       role: user.role,

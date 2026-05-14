@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { DB } from '../db.ts';
 import type { EventBus, LiveEvent } from '../bus.ts';
-import { env } from '../env.ts';
+import { getPublicOrigin } from '../env.ts';
 import { randomId, randomToken } from '../hmac.ts';
 import { requireSession } from '../auth.ts';
 
@@ -131,7 +131,7 @@ export function registerDashboardRoutes(app: FastifyInstance, db: DB, bus: Event
       return reply.code(400).send({ error: 'invalid body', details: parsed.error.flatten() });
     }
     const id = parsed.data.id ?? `t_${randomToken(2)}`;
-    const tenant = createTenant(db, { ...parsed.data, id });
+    const tenant = createTenant(db, { ...parsed.data, id }, getPublicOrigin(request));
     return reply.code(201).send({ tenant });
   });
 
@@ -145,6 +145,7 @@ export function registerDashboardRoutes(app: FastifyInstance, db: DB, bus: Event
       return reply.code(400).send({ error: 'invalid body', details: parsed.error.flatten() });
     }
     const created: ReturnType<typeof createTenant>[] = [];
+    const publicOrigin = getPublicOrigin(request);
     for (const row of parsed.data.rows) {
       created.push(
         createTenant(db, {
@@ -153,7 +154,7 @@ export function registerDashboardRoutes(app: FastifyInstance, db: DB, bus: Event
           brand: row.brand,
           domain: row.domain,
           plan: row.plan,
-        }),
+        }, publicOrigin),
       );
     }
     return reply.code(201).send({ tenants: created });
@@ -396,10 +397,11 @@ export function registerDashboardRoutes(app: FastifyInstance, db: DB, bus: Event
       return reply.code(404).send({ error: 'unknown tenant' });
     }
     const domainScript = `${tenantId}-${tenant.domain ?? 'localhost'}`;
+    const origin = getPublicOrigin(request);
     return reply.send({
-      snippet: `<script src="${env.publicBaseUrl}/widget/loader.js" data-domain-script="${domainScript}" type="module"></script>`,
+      snippet: `<script src="${origin}/widget/loader.js" data-domain-script="${domainScript}" type="module"></script>`,
       domainScript,
-      loaderUrl: `${env.publicBaseUrl}/widget/loader.js`,
+      loaderUrl: `${origin}/widget/loader.js`,
     });
   });
 }
@@ -420,6 +422,7 @@ function createTenant(
     productRules?: unknown[];
     channel?: string;
   },
+  publicOrigin: string,
 ) {
   const plan = input.plan ?? 'starter';
   db.prepare(
@@ -455,7 +458,7 @@ function createTenant(
     domain: input.domain,
     publicKey,
     secret,
-    snippet: `<script src="${env.publicBaseUrl}/widget/loader.js" data-domain-script="${input.id}-${input.domain}" type="module"></script>`,
+    snippet: `<script src="${publicOrigin}/widget/loader.js" data-domain-script="${input.id}-${input.domain}" type="module"></script>`,
   };
 }
 

@@ -65,6 +65,13 @@ npm run tunnel
 
 While the tunnel is up:
 
+> The backend derives the public origin from the URL you opened the dashboard
+> on (Fastify `trustProxy` honors `x-forwarded-proto` / `x-forwarded-host`).
+> So as long as you sign in via the tunnel URL, every snippet, config
+> `eventsUrl`, and session cookie is automatically correct for that tunnel.
+> No `PUBLIC_BASE_URL` env juggling required when the tunnel URL rotates —
+> just refresh the dashboard at the new URL and re-copy the snippet.
+
 1. Open the printed URL in your browser, sign in to the dashboard.
 2. Onboarding → fill in the vendor's name/brand/domain → "Continue". A tenant
    is created and a snippet is generated, e.g.
@@ -152,6 +159,10 @@ node -e "
 - **Cloudflare tunnel URL changes every restart** — that's expected for
   `cloudflared tunnel --url`. For a stable URL, register a named tunnel with
   Cloudflare.
+- **Existing `data.db` still has localhost in the demo tenant's allowed
+  origins** — the seed only runs on an empty DB. Either edit the demo
+  tenant's allowed origins to `*` via Security Center in the dashboard, or
+  wipe `data.db data.db-shm data.db-wal` and restart to re-seed.
 
 ## What is intentionally out of scope
 
