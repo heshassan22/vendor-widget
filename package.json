@@ -7,6 +7,7 @@
     "build": "vite build",
     "build:widget": "vite build && mkdir -p public/widget && cp dist/widget/loader.js dist/widget/widget.js public/widget/",
     "server": "tsx watch server/index.ts",
+    "start:prod": "tsx server/index.ts",
     "dev": "npm run build:widget && concurrently -k -n vite,server -c blue,magenta \"vite\" \"tsx watch server/index.ts\"",
     "dev:fast": "concurrently -k -n vite,server -c blue,magenta \"vite\" \"tsx watch server/index.ts\"",
     "start": "npm run build && npm run build:widget && tsx server/index.ts",

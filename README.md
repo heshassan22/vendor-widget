@@ -95,6 +95,36 @@ For tip-of-the-spear realism, also point a small mock store at the tunnel URL
 (or just open `https://<tunnel>/demo/after.html`) and click around — events
 flow.
 
+## Deploying to Render (free tier)
+
+A `render.yaml` blueprint at the repo root provisions a single Node web service
+on Render. It serves the dashboard, the widget CDN, and the events ingest
+from one HTTPS hostname like `https://vendor-widget.onrender.com`.
+
+Steps:
+
+1. Push this repo to GitHub.
+2. Render → New → Blueprint → connect the repo. Render reads `render.yaml`
+   and creates the service. `COOKIE_SECRET` is auto-generated.
+3. First deploy runs `npm install --include=dev && npm run build:widget` then
+   `npm run start:prod`. Cold builds take 3–5 minutes.
+4. Once it's live, the snippet generator already derives the public origin
+   from the request (same machinery as the tunnel flow above) — open the
+   dashboard at the `.onrender.com` URL and every copied snippet bakes that
+   host automatically.
+
+Caveats specific to Render's free tier:
+
+- **Spin-down after 15 min idle.** The first request after a quiet period
+  takes ~30 s to wake the service — vendor widget loads will lag during cold
+  starts. Acceptable for a smoke test; not acceptable for production.
+- **Ephemeral filesystem.** Each deploy creates a fresh container with no
+  persistent disk. `data.db` is recreated from `seedIfEmpty()` on every
+  boot, so any tenants you created in the dashboard disappear at the next
+  deploy. The demo tenant + admin user are reseeded automatically. For
+  persistence, attach Render's $7/mo persistent disk and set `DB_PATH` to
+  point at the mounted volume, or move off SQLite.
+
 ## Smoke checklist
 
 ```bash

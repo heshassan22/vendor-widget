@@ -54,7 +54,6 @@ async function main() {
     await app.register(fastifyStatic, {
       root: distDir,
       prefix: '/',
-      decorateReply: false,
       setHeaders(res, fp) {
         if (fp.endsWith('index.html')) {
           res.setHeader('Cache-Control', 'no-cache');
@@ -62,7 +61,13 @@ async function main() {
       },
     });
     app.setNotFoundHandler((request, reply) => {
-      if (request.url.startsWith('/api') || request.url.startsWith('/auth')) {
+      const url = request.url;
+      if (
+        url.startsWith('/api') ||
+        url.startsWith('/auth') ||
+        url.startsWith('/configs') ||
+        url.startsWith('/widget')
+      ) {
         return reply.code(404).send({ error: 'not found' });
       }
       return reply.sendFile('index.html');
