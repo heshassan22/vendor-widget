@@ -13,6 +13,7 @@ type ConfigRow = {
   product_rules_json: string;
   environment: string;
   channel: string;
+  points_per_currency_unit: number;
 };
 
 type ApiKeyRow = {
@@ -50,7 +51,8 @@ export function registerCdnRoutes(app: FastifyInstance, db: DB): void {
       const config = db
         .prepare(
           `SELECT primary_color, welcome_message, button_text, launcher_label,
-                  allowed_origins_json, product_rules_json, environment, channel
+                  allowed_origins_json, product_rules_json, environment, channel,
+                  points_per_currency_unit
            FROM tenant_configs WHERE tenant_id = ? AND domain = ?`,
         )
         .get(parsed.tenantId, parsed.domain) as ConfigRow | undefined;
@@ -87,6 +89,7 @@ export function registerCdnRoutes(app: FastifyInstance, db: DB): void {
           eventsUrl: `${getPublicOrigin(request)}/api/v1/events`,
           publicKey: apiKey?.public_key ?? null,
           publishableSecret: apiKey?.secret ?? null,
+          pointsPerCurrencyUnit: config.points_per_currency_unit,
         });
     },
   );

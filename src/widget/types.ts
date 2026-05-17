@@ -24,12 +24,15 @@ export type WidgetTenantConfig = {
   eventsUrl: string;
   publicKey: string | null;
   publishableSecret: string | null;
+  pointsPerCurrencyUnit: number;
 };
 
 export type ProductContext = {
   sku: string | null;
   brand: string | null;
   title: string | null;
+  price: number | null;
+  currency: string | null;
   matchedPoints: number;
 };
 

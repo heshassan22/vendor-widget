@@ -5,17 +5,39 @@ export type UiHandlers = {
   onCtaClick: () => void;
 };
 
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatPrice(price: number, currency: string | null): string {
+  const symbol = currency === 'USD' || currency === null ? '$' : `${currency} `;
+  return `${symbol}${price.toFixed(2)}`;
+}
+
 export function renderWidget(
   shadowRoot: ShadowRoot,
   config: WidgetTenantConfig,
   product: ProductContext,
   handlers: UiHandlers,
 ): void {
-  const productLabel = product.title ?? product.sku ?? product.brand ?? 'this product';
-  const pointsLabel =
+  const productLabel = product.title ?? product.sku ?? product.brand ?? null;
+  const safeProductLabel = productLabel === null ? null : escapeHtml(productLabel);
+  const priceLine = product.price !== null ? formatPrice(product.price, product.currency) : null;
+
+  const pointsBlock =
     product.matchedPoints > 0
-      ? `Earn <b>${product.matchedPoints}</b> pts on ${productLabel}`
-      : config.theme.welcomeMessage;
+      ? `<div class="points-headline">Earn <b>${product.matchedPoints}</b> pts</div>`
+      : '';
+  const productBlock =
+    safeProductLabel === null
+      ? `<div class="body">${escapeHtml(config.theme.welcomeMessage)}</div>`
+      : `<div class="product-line"><div class="product-title">${safeProductLabel}</div>${
+          priceLine !== null ? `<div class="product-price">${escapeHtml(priceLine)}</div>` : ''
+        }</div>`;
 
   shadowRoot.innerHTML = `
     <style>
@@ -53,8 +75,30 @@ export function renderWidget(
       .panel.open { display: block; }
       .title { font-weight: 700; color: #0f172a; margin-bottom: 6px; }
       .body { color: #475569; margin-bottom: 10px; line-height: 1.4; }
-      .points { color: #0f172a; }
-      .points b { color: ${config.theme.primaryColor}; }
+      .points-headline {
+        color: #0f172a;
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .points-headline b { color: ${config.theme.primaryColor}; font-size: 22px; }
+      .product-line {
+        margin-bottom: 12px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #f8fafc;
+      }
+      .product-title {
+        color: #0f172a;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+      .product-price {
+        color: #64748b;
+        font-size: 12px;
+        margin-top: 2px;
+      }
       .cta {
         width: 100%;
         border: 0;
@@ -85,7 +129,8 @@ export function renderWidget(
     </style>
     <div class="panel" data-ui="panel" role="dialog" aria-label="${config.brand} rewards">
       <div class="title">${config.brand} rewards</div>
-      <div class="body points">${pointsLabel}</div>
+      ${pointsBlock}
+      ${productBlock}
       <button class="cta" data-ui="cta">${config.theme.buttonText}</button>
       <div class="balance" data-ui="balance"></div>
       <div class="footer">${config.tenantName}</div>

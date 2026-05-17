@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS tenant_configs (
   product_rules_json TEXT NOT NULL DEFAULT '[]',
   environment TEXT NOT NULL DEFAULT 'production',
   channel TEXT NOT NULL DEFAULT 'stable',
+  points_per_currency_unit REAL NOT NULL DEFAULT 10,
   PRIMARY KEY (tenant_id, domain),
   FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 );
@@ -84,5 +85,13 @@ CREATE TABLE IF NOT EXISTS audit_log (
 export function openDatabase() {
   const db = new Database(env.dbPath);
   db.exec(SCHEMA);
+  const cols = db
+    .prepare("PRAGMA table_info(tenant_configs)")
+    .all() as Array<{ name: string }>;
+  if (cols.some((c) => c.name === 'points_per_currency_unit') === false) {
+    db.exec(
+      "ALTER TABLE tenant_configs ADD COLUMN points_per_currency_unit REAL NOT NULL DEFAULT 10",
+    );
+  }
   return db;
 }
