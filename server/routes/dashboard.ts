@@ -47,12 +47,29 @@ type EventRow = {
   created_at: string;
 };
 
+function normalizeDomain(input: string): string {
+  return input
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/[/?#].*$/, '')
+    .toLowerCase();
+}
+
+const domainSchema = z
+  .string()
+  .min(3)
+  .max(200)
+  .transform(normalizeDomain)
+  .refine((v) => v.length >= 3 && v.includes('.'), {
+    message: 'domain must be a hostname like example.com',
+  });
+
 const tenantBodySchema = z.object({
   id: z.string().min(2).max(64).optional(),
   name: z.string().min(1).max(120),
   brand: z.string().min(1).max(120),
   plan: z.enum(['starter', 'growth', 'enterprise']).optional(),
-  domain: z.string().min(3).max(200),
+  domain: domainSchema,
   primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   welcomeMessage: z.string().max(280).optional(),
   buttonText: z.string().max(60).optional(),
@@ -79,7 +96,7 @@ const bulkBodySchema = z.object({
       z.object({
         name: z.string().min(1),
         brand: z.string().min(1),
-        domain: z.string().min(3),
+        domain: domainSchema,
         plan: z.enum(['starter', 'growth', 'enterprise']).optional(),
       }),
     )
