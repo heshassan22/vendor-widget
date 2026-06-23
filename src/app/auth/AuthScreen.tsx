@@ -6,8 +6,8 @@ type AuthScreenProps = {
 };
 
 export default function AuthScreen({ onLogin }: AuthScreenProps) {
-  const [email, setEmail] = useState('admin@uniwidget.local');
-  const [password, setPassword] = useState('admin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -43,6 +43,7 @@ export default function AuthScreen({ onLogin }: AuthScreenProps) {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="email"
+              placeholder="you@example.com"
             />
           </div>
           <div className="space-y-2">
@@ -62,9 +63,6 @@ export default function AuthScreen({ onLogin }: AuthScreenProps) {
           <Button type="submit" disabled={submitting}>
             {submitting ? 'Signing in…' : 'Sign in'}
           </Button>
-          <Typography className="text-xs text-slate-500">
-            Default seeded admin: <code>admin@uniwidget.local</code> / <code>admin</code>
-          </Typography>
         </form>
       </Card>
     </div>
